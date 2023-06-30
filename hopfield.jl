@@ -103,12 +103,17 @@ function train_map!(H::ContinuousHopfieldNetwork, patterns::Matrix; J=0.0, pretr
         pattern_masked = copy(patterns)
         pattern_masked .+= rand(Bernoulli(p_noise), size(pattern_masked))
         pattern_masked .%= 2
+
+        for i in size(model.W, 1)
+            model.W[i,i] = 0.0
+        end
         
         loss, gs = withgradient(model) do m
             pred_a, pred_x = recall(m.W, m.θ, pattern_masked)
             logitbinarycrossentropy(pred_a, patterns_01)
         end
-        Optimisers.update!(tree, model, gs[1])
+        gs = (;gs[1]..., W=(gs[1].W+gs[1].W')./2)
+        Optimisers.update!(tree, model, gs)
         (epoch==epochs || epoch%10==0) && @show epoch, loss
     end
     return H
